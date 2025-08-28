@@ -1,17 +1,25 @@
-import express from 'express';
-import http from 'http';
-import cors from 'cors';
+import dotenv from 'dotenv'
+import path from 'path'
+
+dotenv.config({
+  path: path.resolve(__dirname, "../../../.env"),
+});
 
 
-const port = 8080;
+import { app } from './app'
 
-const app = express();
-app.use(cors());
-
-const server = http.createServer(app);
-
-
-
-server.listen(port,()=>{
-    console.log(`Project Lighthouse Express server operational.`);
+dotenv.config({
+    path: './env'
 })
+
+const PORT = process.env.PORT;
+
+app.listen(PORT, () => {
+    console.log(`Server running at PORT: ${PORT}`)
+})
+
+
+
+
+
+
