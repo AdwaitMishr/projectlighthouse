@@ -5,8 +5,24 @@ import { Button } from "@/components/ui/button";
 import { LoaderIcon, LocateFixedIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import type { LatLngTuple, Map as LeafletMap } from "leaflet";
+import type {
+  LatLngTuple,
+  Map as LeafletMap,
+  Layer,
+  FeatureGroup,
+  LeafletEvent,
+} from "leaflet";
+import type { GeoJSON } from "geojson";
+interface DrawCreatedEvent extends LeafletEvent {
+  layer: Layer;
+  layerType?: string; 
+}
 
+interface GeoJSONableLayer extends Layer {
+  toGeoJSON(): GeoJSON.Feature;
+}
+
+// Geofencing component remains the same
 const Geofencing = () => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 font-sans text-white">
@@ -21,7 +37,6 @@ const Geofencing = () => {
 };
 
 export const MapView: React.FC = () => {
-  const [userLocation, setUserLocation] = useState<LatLngTuple | null>(null);
   const [patientLocation] = useState<LatLngTuple>([13.0827, 80.2707]);
 
   const mapRef = useRef<LeafletMap | null>(null);
@@ -30,31 +45,33 @@ export const MapView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // State for managing the confirmation dialog and the drawn shape
   const [showFinalize, setShowFinalize] = useState(false);
-  const [latestGeoJSON, setLatestGeoJSON] = useState<any>(null);
-  const lastLayerRef = useRef<any>(null);
-  const drawnItemsRef = useRef<any>(null);
+  // Use a proper GeoJSON type for the drawn shape
+  const [latestGeoJSON, setLatestGeoJSON] = useState<GeoJSON.Feature | null>(
+    null,
+  );
+  // Use the correct Leaflet Layer type
+  const lastLayerRef = useRef<Layer | null>(null);
+  const drawnItemsRef = useRef<FeatureGroup | null>(null);
 
   useEffect(() => {
-    let L: typeof import("leaflet");
-
     const initMap = async () => {
-      // Dynamically import leaflet and leaflet-draw
-      const leafletModule = await import("leaflet");
+      const L = await import("leaflet");
       await import("leaflet-draw");
-      L = leafletModule;
 
-      const leafletCss = document.createElement("link");
-      leafletCss.rel = "stylesheet";
-      leafletCss.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      document.head.appendChild(leafletCss);
-
-      const leafletDrawCss = document.createElement("link");
-      leafletDrawCss.rel = "stylesheet";
-      leafletDrawCss.href =
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
-      document.head.appendChild(leafletDrawCss);
+      if (!document.head.querySelector('link[href*="leaflet.css"]')) {
+        const leafletCss = document.createElement("link");
+        leafletCss.rel = "stylesheet";
+        leafletCss.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        document.head.appendChild(leafletCss);
+      }
+      if (!document.head.querySelector('link[href*="leaflet.draw.css"]')) {
+        const leafletDrawCss = document.createElement("link");
+        leafletDrawCss.rel = "stylesheet";
+        leafletDrawCss.href =
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
+        document.head.appendChild(leafletDrawCss);
+      }
 
       if (mapContainerRef.current && !mapRef.current) {
         const map = L.map(mapContainerRef.current).setView(patientLocation, 13);
@@ -65,18 +82,14 @@ export const MapView: React.FC = () => {
             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         }).addTo(map);
 
-        L.marker(patientLocation)
-          .addTo(map)
-          .bindPopup("<b>Patient Location</b>");
+        L.marker(patientLocation).addTo(map).bindPopup("<b>Patient Location</b>");
 
         const drawnItems = new L.FeatureGroup();
         drawnItemsRef.current = drawnItems;
         map.addLayer(drawnItems);
 
         const drawControl = new L.Control.Draw({
-          edit: {
-            featureGroup: drawnItems,
-          },
+          edit: { featureGroup: drawnItems },
           draw: {
             polyline: false,
             marker: false,
@@ -84,23 +97,22 @@ export const MapView: React.FC = () => {
           },
         });
         map.addControl(drawControl);
+        map.on("draw:created", (e: DrawCreatedEvent) => {
+        const layer = e.layer;
+        if (lastLayerRef.current && drawnItemsRef.current) {
+          drawnItemsRef.current.removeLayer(lastLayerRef.current);
+        }
+        drawnItems.addLayer(layer);
+        lastLayerRef.current = layer;
 
-        map.on("draw:created", (e: any) => {
-          const layer = e.layer;
-          if (lastLayerRef.current) {
-            drawnItems.removeLayer(lastLayerRef.current);
-          }
-          drawnItems.addLayer(layer);
-          lastLayerRef.current = layer;
-
-          const geoJSON = layer.toGeoJSON();
-          setLatestGeoJSON(geoJSON);
-          setShowFinalize(true); // Show the confirmation card
-        });
+        const geoJSON = (layer as GeoJSONableLayer).toGeoJSON();
+        setLatestGeoJSON(geoJSON);
+        setShowFinalize(true);
+      });
       }
     };
 
-    initMap();
+    void initMap();
 
     return () => {
       if (mapRef.current) {
@@ -125,16 +137,22 @@ export const MapView: React.FC = () => {
       (position) => {
         const { latitude, longitude } = position.coords;
         const newLocation: LatLngTuple = [latitude, longitude];
-        setUserLocation(newLocation);
+        
+        // const [userLocation, setUserLocation] = useState<LatLngTuple>();
+        // setUserLocation(newLocation);
 
         if (mapRef.current) {
           mapRef.current.setView(newLocation, 13);
-          import("leaflet").then((L) => {
-            L.marker(newLocation)
-              .addTo(mapRef.current!)
-              .bindPopup("<b>Your location</b>")
-              .openPopup();
-          });
+          import("leaflet")
+            .then((L) => {
+              if (mapRef.current) {
+                L.marker(newLocation)
+                  .addTo(mapRef.current)
+                  .bindPopup("<b>Your location</b>")
+                  .openPopup();
+              }
+            })
+            .catch((err) => console.error("Failed to load Leaflet", err));
         }
         setIsLoading(false);
         toast.success("Location found!");
@@ -165,9 +183,7 @@ export const MapView: React.FC = () => {
           {isLoading ? (
             <LoaderIcon className="animate-spin" />
           ) : (
-            <>
-              <LocateFixedIcon />
-            </>
+            <LocateFixedIcon />
           )}
         </Button>
       </div>
@@ -180,10 +196,9 @@ export const MapView: React.FC = () => {
       {showFinalize && (
         <ConfirmShapeCard
           onConfirm={() => {
-            // console.log("Geofence confirmed:", latestGeoJSON); 
+            console.log("Geofence confirmed:", latestGeoJSON);
             toast.success("Geofence saved!");
             setShowFinalize(false);
-            // Use router push to send to next page in flow.
           }}
           onCancel={() => {
             if (drawnItemsRef.current && lastLayerRef.current) {
@@ -203,7 +218,6 @@ interface ConfirmShapeCardProps {
   onConfirm: () => void;
   onCancel: () => void;
 }
-
 const ConfirmShapeCard: React.FC<ConfirmShapeCardProps> = ({
   onConfirm,
   onCancel,
@@ -222,15 +236,11 @@ const ConfirmShapeCard: React.FC<ConfirmShapeCardProps> = ({
           >
             No, Discard
           </Button>
-          <Button onClick={onConfirm} className="">
-            Yes, Save
-          </Button>
+          <Button onClick={onConfirm}>Yes, Save</Button>
         </div>
       </div>
     </div>
   );
 };
 
-export default function App() {
-  return <Geofencing />;
-}
+export default Geofencing;
