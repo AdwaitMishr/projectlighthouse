@@ -5,6 +5,7 @@ dotenv.config({
   path: path.resolve(__dirname, "../../../.env"),
 });
 
+import './utils/redis/redisClient.ts'
 
 import { app } from './app'
 
