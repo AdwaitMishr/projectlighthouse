@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { sql } from './db';
 import cookieParser from "cookie-parser"
+import { toNodeHandler } from 'better-auth/node';
 
 const app = express();
 
@@ -36,6 +37,8 @@ app.get('/', async (_, res) => {
     console.error('Error connecting the db to the server')
   }
 });
+
+
 
 const now = new Date();
 
