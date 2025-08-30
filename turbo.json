@@ -3,6 +3,13 @@
   "ui": "tui",
   "tasks": {
     "build": {
+      "env":[
+    "DATABASE_URL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL"
+  ],
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
