@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 
-const redisConnectionString = process.env.REDIS_CONNECTION_URL || '';
+const redisConnectionString = process.env.REDIS_CONNECTION_URL;
 
 
 const redisClient = createClient({
