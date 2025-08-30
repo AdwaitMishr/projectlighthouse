@@ -11,12 +11,17 @@ import { index, pgTableCreator } from "drizzle-orm/pg-core";
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
 
+export const patientStatus = pgEnum('patient_status',["OKAY","SOFT_ALERT","HARD_ALERT"]);
+
+export const invitationStatus = pgEnum('invitation_status',["ACTIVE","INACTIVE"]);
+
 import {
   pgTable,
   text,
   timestamp,
   boolean,
   integer,
+  pgEnum
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -80,3 +85,27 @@ export const verification = pgTable("verification", {
 });
 
 export const createTable = pgTableCreator((name) => `projectlighthouse_${name}`);
+
+export const patient = createTable("patient",
+  (d)=>({
+    id: d.text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+    name : d.text().notNull(),
+    currentStatus: patientStatus("currentStatus").default('OKAY').notNull(),
+    caregiverId: d.text("caregiverId").notNull().references(()=>user.id,{onDelete:"cascade"}),
+    createdAt: timestamp("created_at")
+        .$defaultFn(() => new Date())
+        .notNull(),
+    updatedAt: timestamp("updated_at")
+        .$defaultFn(() => new Date())
+        .notNull(),
+  })
+)
+
+export const patientInvitation = createTable("patientInvitation",
+  (d)=>({
+    id: d.text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+    accessCode: d.varchar({length: 6}).unique(), //have to set access code manually every time a new invitation is made
+    caregiverId: d.text("caregiverId").notNull().references(()=>user.id,{onDelete:"cascade"}),
+    status: invitationStatus("status").default('ACTIVE').notNull()
+  })
+)
