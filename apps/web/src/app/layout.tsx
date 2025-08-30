@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 
 import { Providers } from "./providers";
+import Header from "./_components/Header";
 
 export const metadata: Metadata = {
   title: "Project Lighthouse Console",
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className='dark'>
         <TRPCReactProvider>
           <Providers>
+            <Header/>
             {children}
             </Providers>
           <Toaster position="top-left" />

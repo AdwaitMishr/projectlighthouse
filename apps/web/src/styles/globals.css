@@ -1,4 +1,6 @@
 @source "../../../../node_modules/@daveyplate/better-auth-ui";
+@import "leaflet/dist/leaflet.css";
+@import "leaflet-draw/dist/leaflet.draw.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
